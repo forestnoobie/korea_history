@@ -7,6 +7,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import fitz  # PyMuPDF
+from scipy.spatial.distance import cdist
+import numpy as np
 
 def pdf_to_images(pdf_path, output_dir=None, dpi=300):
     """
@@ -85,8 +87,11 @@ if not os.path.exists(kor_traineddata):
 os.environ['TESSDATA_PREFIX'] = tessdata_dir
 
 # Open the image file
-fnames = os.listdir("../temp/output_images")
-#fnames = ["74_workbook_page_3.png", "74_workbook_page_6.png", "74_workbook_page_12.png"]
+# fnames = os.listdir("../temp/output_images")
+# fnames.sort(key = lambda x: int(x.split('_')[3].split('.')[0]))
+fnames = ["74_workbook_page_3.png"]
+q_cnt = 1
+
 for fname in fnames:
     print(f"Processing image: {fname}")
     image = Image.open(f"../temp/output_images/{fname}")
@@ -147,7 +152,65 @@ for fname in fnames:
     q_data = q_data.sort_values(by=['top', 'left'], ascending=[True, True])
 
     # 왼쪽 문제 찾기
-    q_data['left_side'] = q_data['left'].apply(lambda x: True if x < total_w * 0.5 and x > total_w * 0.25 else False)
+    q_data['left_side'] = q_data['left'].apply(lambda x: True if x < total_w * 0.5  else False)
+
+    # 문제 갯수로 추가 전처리
+    import pdb; pdb.set_trace()
+    ## 문제 수 너무 작으면 "]" 문제 추가
+    if len(q_data) < 3:
+        candidate_data = data[data['text'].str.contains(r'^\]', regex=True)]  #  [
+        candidate_data = candidate_data.sort_values(by=['top', 'left'], ascending=[True, True]).reset_index(drop=True)
+        # 1. Find the closest q_data according to top, left in candidate_data
+        # For each candidate, find the closest q_data point using Euclidean distance
+        def find_closest_q(row):
+            if len(q_data) == 0:
+                return False
+            # Calculate distances to all q_data points
+            distances = []
+            for _, q_row in q_data.iterrows():
+                # Euclidean distance between points (left, top)
+                dist = ((row['left'] - q_row['left'])**2 + (row['top'] - q_row['top'])**2)**0.5
+                distances.append(dist)
+            # Return True if minimum distance is within threshold (e.g. 100 pixels)
+            return min(distances) < 100
+        candidate_data['close_to_q'] = candidate_data.apply(find_closest_q, axis=1)
+        
+        # Method 1: Using scipy.spatial.distance (most efficient)
+        # Extract coordinates from both dataframes
+        candidate_coords = candidate_data[['left', 'top']].values
+        q_coords = q_data[['left', 'top']].values
+        
+        # Calculate all pairwise distances
+        distances = cdist(candidate_coords, q_coords)
+        
+        # Find minimum distance for each candidate
+        min_distances = np.min(distances, axis=1)
+        
+        # Create a boolean mask for candidates close to questions
+        close_mask = min_distances < 100  # 100 pixel threshold
+        candidate_data['close_to_q'] = close_mask
+        
+        # Alternative: Get the closest question index for each candidate
+        closest_q_indices = np.argmin(distances, axis=1)
+        candidate_data['closest_q_index'] = closest_q_indices
+        candidate_data['min_distance'] = min_distances
+        
+        # Method 2: Using pandas merge with cross join (alternative approach)
+        # candidate_data['key'] = 1
+        # q_data['key'] = 1
+        # cross_join = candidate_data.merge(q_data, on='key', suffixes=('_candidate', '_q'))
+        # cross_join['distance'] = np.sqrt((cross_join['left_candidate'] - cross_join['left_q'])**2 + 
+        #                                  (cross_join['top_candidate'] - cross_join['top_q'])**2)
+        # min_distances = cross_join.groupby('candidate_index')['distance'].min()
+        
+        # Method 3: Using sklearn.metrics.pairwise_distances
+        # from sklearn.metrics.pairwise import pairwise_distances
+        # distances = pairwise_distances(candidate_coords, q_coords, metric='euclidean')
+        
+        # Method 4: Vectorized numpy approach (manual implementation)
+        # distances = np.sqrt(((candidate_coords[:, np.newaxis, :] - q_coords[np.newaxis, :, :])**2).sum(axis=2))
+        
+    ## 문제 수 많으면 / 문제 사이 간격을 통해 합치기
 
     left_q_data = q_data[q_data['left_side'] == True]
     # ? Strong Left condition : total_w * 0.25 < x
@@ -161,12 +224,9 @@ for fname in fnames:
     right_q_data = right_q_data.sort_values(by='top', ascending=True).reset_index(drop=True)  
 
     q_wh = (left_q_data.iloc[0]['left'], left_q_data.iloc[0]['top'])
-    q_cnt = 0
     left_margin = 170
     for idx, left_q in left_q_data.iterrows():
         if idx == 0: 
-            q_cnt += 1
-
             continue
         q_prev = q_wh
         q_wh = (left_q['left'], left_q['top'])
@@ -174,19 +234,19 @@ for fname in fnames:
         q_cnt += 1
 
     draw_rect(left_margin, q_wh[1], total_w/2 - left_margin, total_h - q_wh[1], f"No.{q_cnt}", q_cnt)
+    q_cnt += 1
 
     right_margin = 20
     q_wh = (right_q_data.iloc[0]['left'], right_q_data.iloc[0]['top'])
     for idx, right_q in right_q_data.iterrows():
         if idx == 0: 
-            q_cnt += 1
             continue
         q_prev = q_wh
         q_wh = (right_q['left'], right_q['top'])
         draw_rect(total_w/2 + right_margin, q_prev[1], total_w/2 - 170, q_wh[1] - q_prev[1], f"No.{q_cnt}", q_cnt)
         q_cnt += 1
     draw_rect(total_w/2 + right_margin, q_wh[1], total_w/2 - 170, total_h - q_wh[1], f"No.{q_cnt}", q_cnt)
-
+    q_cnt += 1
 
     plt.axis('off')
     plt.savefig(f'../box_outputs/{fname}_with_boxes.png', bbox_inches='tight', dpi=300)
