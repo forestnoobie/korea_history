@@ -89,7 +89,7 @@ os.environ['TESSDATA_PREFIX'] = tessdata_dir
 # Open the image file
 fnames = os.listdir("../temp/output_images")
 fnames.sort(key = lambda x: int(x.split('_')[3].split('.')[0]))
-fnames = ["74_workbook_page_6.png", "74_workbook_page_8.png","74_workbook_page_9.png"]
+#fnames = ["74_workbook_page_1.png", "74_workbook_page_12.png"]
 q_cnt = 1
 
 for fname in fnames:
@@ -121,7 +121,7 @@ for fname in fnames:
             text_info += f"Confidence: {row['conf']}%\n"
             text_info += "-" * 50 + "\n"
             out.write(text_info)
-            print(text_info)
+            #print(text_info)
 
     # Save the detailed data to CSV for further analysis if needed
     data.to_csv("ocr_results.csv", index=False, encoding="utf-8")
@@ -153,11 +153,11 @@ for fname in fnames:
 
     # 왼쪽 문제 찾기
     q_data['left_side'] = q_data['left'].apply(lambda x: True if x < total_w * 0.5  else False)
-
+    q_data = q_data[((q_data.left_side == True) & (q_data.left > total_w * 0.3)) | ((q_data.left_side == False) & (q_data.left > total_w * 0.75))]
+    
     # 문제 갯수로 추가 전처리    ## 문제 수 너무 작으면 "]" 문제 추가
     
-    import pdb; pdb.set_trace()
-    if len(q_data) < 5:
+    if len(q_data) < 4:
         candidate_data = data[data['text'].str.contains(r'^\]', regex=True)]  #  [
         candidate_data = candidate_data.sort_values(by=['top', 'left'], ascending=[True, True]).reset_index(drop=True)
         candidate_data['left_side'] = candidate_data['left'].apply(lambda x: True if x < total_w * 0.5 and x > total_w * 0.4 else False)
@@ -174,9 +174,8 @@ for fname in fnames:
                     distances.append(dist)
             # Return True if minimum distance is within threshold (e.g. 100 pixels)
 
-            return min(distances) < 50
+            return min(distances) < 120
         candidate_data['close_to_q'] = candidate_data.apply(find_closest_q, axis=1)
-        import pdb; pdb.set_trace()
         # 가까운 q_data가 없는 Candidate_data merge
         candidate_data = candidate_data[candidate_data['close_to_q'] == False]
         candidate_data.drop(columns=['close_to_q'], inplace=True)
