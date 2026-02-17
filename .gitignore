@@ -31,8 +31,12 @@ ENV/
 *.swp
 *.swo
 
+# Environment files
+.env
+
 # Project specific
 tessdata/
+utils/kor.traineddata
 output_images/
 *.png
 *.jpg

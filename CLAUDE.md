@@ -25,7 +25,7 @@ Korean history exam document processing system that extracts questions from PDF 
 │   └── processed/         # Processed output (images, CSV, JSONL)
 ├── utils/
 │   ├── parsing.py         # Reusable PDF/drawing utilities
-│   └── kor.traineddata    # Korean Tesseract language model
+│   └── (kor.traineddata)  # Korean Tesseract model (auto-downloaded at runtime)
 ├── scripts/
 │   └── opensearch.sh      # Docker deployment for OpenSearch
 ├── temp/                  # Experimental/test scripts
@@ -66,28 +66,10 @@ docker network create opensearch-net
 # Create persistent volume (first time only)
 docker volume create opensearch-data
 
-# Start OpenSearch container with persistent storage
-docker run --rm --name es01 --network opensearch-net \
-  -e "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g" \
-  -e "OPENSEARCH_INITIAL_ADMIN_PASSWORD=hanSHin@1" \
-  -p 9200:9200 -p 9600:9600 \
-  -e "discovery.type=single-node" \
-  -e "plugins.security.disabled=true" \
-  -v opensearch-data:/usr/share/opensearch/data \
-  opensearchproject/opensearch:3.1.0
+# Set password via environment variable (or edit .env file)
+export OPENSEARCH_PASSWORD=your_password_here
 
-# Start OpenSearch Dashboards (optional, in another terminal)
-docker run -d --rm --name opensearch-dashboards --network opensearch-net \
-  -p 8002:5601 \
-  -e OPENSEARCH_USERNAME=admin \
-  -e OPENSEARCH_PASSWORD=hanSHin@1 \
-  -e DISABLE_SECURITY_DASHBOARDS_PLUGIN=true \
-  -e OPENSEARCH_SSL_VERIFICATIONMODE=none \
-  -e NODE_OPTIONS="--openssl-legacy-provider" \
-  -e OPENSEARCH_HOSTS='["http://es01:9200"]' \
-  opensearchproject/opensearch-dashboards:3.1.0
-
-# Or use the convenience script
+# Or use the convenience script (starts both OpenSearch and Dashboards)
 bash scripts/opensearch.sh
 ```
 
@@ -101,8 +83,11 @@ bash scripts/opensearch.sh
 # Activate conda environment first
 conda activate korea_history
 
-# Process exam PDF and extract questions
+# Process exam PDF and extract questions (default exam 74)
 python problem_parsing.py
+
+# Process a specific exam number
+python problem_parsing.py --exam-no 74
 
 # Extract answer keys
 python anwser_parsing.py
@@ -141,11 +126,10 @@ Tesseract config (`problem_parsing.py:69`):
 - PSM 6: Single column text mode
 - Confidence threshold: >= 70
 
-## Known Issues
+## Configuration
 
-1. **Hardcoded credentials** in `insert_to_opensearch.py:285-286` - OpenSearch password exposed
-2. **SSL verification disabled** in `problem_parsing.py:50` - Security risk
-3. **Exam ID (74) hardcoded** throughout - Not parameterized for multiple exams
+- OpenSearch credentials are configured via environment variables (see `.env.example`)
+- Exam ID is parameterized via `--exam-no` argument in `problem_parsing.py`
 
 ## Additional Documentation
 

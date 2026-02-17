@@ -28,7 +28,7 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Edit the configuration in `insert_to_opensearch.py` or `example_usage.py`:
+Edit the configuration in `insert_to_opensearch.py` or set environment variables:
 
 ```python
 config = {
@@ -105,7 +105,7 @@ The script processes CSV data with the following columns:
 
 - `image_path`: Path to the image file
 - `page`: Page identifier
-- `artifact_type`: Type of artifact (question, splited_page, etc.)
+- `artifact_type`: Type of artifact (question, split_page, etc.)
 - `question_no`: Question number (for questions)
 - `bounding_box`: Bounding box coordinates as string
 - `left`: Left coordinate
@@ -131,7 +131,7 @@ The script creates an index with the following mapping:
       "width": {"type": "float"},
       "height": {"type": "float"},
       "exam_id": {"type": "keyword"},
-      "bbox_values": {"type": "float"}
+      "timestamp": {"type": "date"}
     }
   }
 }
@@ -155,20 +155,6 @@ The script uses Python's logging module with the following levels:
 - INFO: General information about operations
 - WARNING: Non-critical issues
 - ERROR: Critical errors that prevent operation
-
-## Examples
-
-Run the example script to see different usage patterns:
-
-```bash
-python example_usage.py
-```
-
-This will demonstrate:
-- Basic data insertion
-- Search queries
-- Bulk operations
-- Authentication examples
 
 ## Troubleshooting
 
@@ -212,4 +198,4 @@ curl http://localhost:9200
 
 ## License
 
-This project is licensed under the MIT License. 
+This project is licensed under the MIT License.

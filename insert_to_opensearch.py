@@ -5,7 +5,6 @@ Script to insert history exam bounding box data into OpenSearch
 
 import pandas as pd
 import json
-import ast
 from opensearchpy import OpenSearch, helpers
 import logging
 from typing import Dict, Any, List
@@ -16,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 class OpenSearchDataInserter:
-    def __init__(self, host: str = 'localhost', port: int = 5601, 
+    def __init__(self, host: str = 'localhost', port: int = 9200,
                  username: str = None, password: str = None, 
                  use_ssl: bool = False, verify_certs: bool = False):
         """
@@ -278,14 +277,14 @@ class OpenSearchDataInserter:
 def main():
     """Main function to run the data insertion"""
     
-    # Configuration - modify these values according to your OpenSearch setup
+    # Configuration from environment variables
     config = {
-        'host': 'localhost',
-        'port': 9200,
-        'username': "admin",  # Set if authentication is required
-        'password': "hanSHin@1",  # Set if authentication is required
-        'use_ssl': False,  # Set to True if using HTTPS
-        'verify_certs': False  # Set to True if you want to verify SSL certificates
+        'host': os.environ.get('OPENSEARCH_HOST', 'localhost'),
+        'port': int(os.environ.get('OPENSEARCH_PORT', 9200)),
+        'username': os.environ.get('OPENSEARCH_USERNAME'),
+        'password': os.environ.get('OPENSEARCH_PASSWORD'),
+        'use_ssl': os.environ.get('OPENSEARCH_USE_SSL', 'false').lower() == 'true',
+        'verify_certs': os.environ.get('OPENSEARCH_VERIFY_CERTS', 'false').lower() == 'true',
     }
     
     # CSV file path
@@ -296,7 +295,6 @@ def main():
         logger.error(f"CSV file not found: {csv_file_path}")
         return
     
-    # try:
     # Initialize inserter
     inserter = OpenSearchDataInserter(**config)
     
@@ -321,9 +319,6 @@ def main():
         
     else:
         logger.error("Data insertion failed!")
-            
-    # except Exception as e:
-    #     logger.error(f"Error in main execution: {e}")
 
 if __name__ == "__main__":
-    main() 
+    main()
