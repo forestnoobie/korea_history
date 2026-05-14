@@ -4,28 +4,49 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { api, imageUrl, type QuizResult, type QuestionResult } from "@/lib/api";
+import { T } from "@/lib/theme";
 
-const ANSWER_LABELS = ["①", "②", "③", "④", "⑤"];
+const CIRCLED = ["①", "②", "③", "④", "⑤"];
 
-function AnswerGrid({ item }: { item: QuestionResult }) {
+function Crest({ color, size = 24 }: { color: string; size?: number }) {
   return (
-    <div className="grid grid-cols-5 gap-2">
-      {ANSWER_LABELS.map((label, i) => {
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10.5" stroke={color} strokeWidth="1" />
+      <path d="M12 2.5v19" stroke={color} strokeWidth="1" />
+      <path d="M3 12c2.5-2.5 6.5-2.5 9 0s6.5 2.5 9 0" stroke={color} strokeWidth="1" fill="none" />
+    </svg>
+  );
+}
+
+function AnswerRow({ item }: { item: QuestionResult }) {
+  return (
+    <div style={{ display: "flex", gap: 6 }}>
+      {CIRCLED.map((label, i) => {
         const val = i + 1;
         const isCorrect = val === item.correct_answer;
         const isSelected = val === item.selected_answer;
-
-        let cls = "rounded-xl border-2 py-2 text-lg font-semibold ";
-        if (isCorrect) {
-          cls += "border-green-500 bg-green-100 text-green-700";
-        } else if (isSelected && !isCorrect) {
-          cls += "border-red-400 bg-red-100 text-red-600";
-        } else {
-          cls += "border-gray-200 bg-white text-gray-400";
-        }
+        const border = isCorrect
+          ? `1.5px solid ${T.correct}`
+          : isSelected && !isCorrect
+          ? `1.5px solid ${T.wrong}`
+          : `1px solid ${T.line}`;
+        const bg = isCorrect
+          ? "rgba(63,107,58,0.08)"
+          : isSelected && !isCorrect
+          ? "rgba(160,43,31,0.08)"
+          : T.surface;
+        const color = isCorrect ? T.correct : isSelected && !isCorrect ? T.wrong : T.inkMuted;
 
         return (
-          <div key={val} className={cls + " text-center"}>
+          <div
+            key={val}
+            style={{
+              flex: 1, height: 40, borderRadius: T.radius,
+              border, background: bg,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: T.serif, fontSize: 16, color,
+            }}
+          >
             {label}
           </div>
         );
@@ -46,89 +67,181 @@ export default function ReviewPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-red-500">{error}</p>
+      <div style={{
+        minHeight: "100vh", background: T.appBg,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: T.serif, color: T.accent,
+      }}>
+        {error}
       </div>
     );
   }
 
   if (!result) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-gray-400">Loading…</p>
+      <div style={{
+        minHeight: "100vh", background: T.appBg,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: T.mono, fontSize: 12, color: T.inkMuted, letterSpacing: 1,
+      }}>
+        불러오는 중…
       </div>
     );
   }
 
-  const wrong = result.results.filter((r) => !r.is_correct);
-
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-2 text-2xl font-bold">Wrong Answers Review</h1>
-      <p className="mb-8 text-gray-500">
-        {wrong.length === 0
-          ? "Perfect score — no wrong answers!"
-          : `${wrong.length} question${wrong.length > 1 ? "s" : ""} to review`}
-      </p>
+    <div style={{
+      minHeight: "100vh",
+      background: `radial-gradient(ellipse at top, ${T.surface} 0%, ${T.appBg} 70%)`,
+      display: "flex", flexDirection: "column",
+      alignItems: "center",
+      fontFamily: T.serif,
+    }}>
+      <div style={{ width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+        {/* Header */}
+        <div style={{
+          padding: "14px 18px 10px",
+          display: "flex", alignItems: "center", gap: 12,
+          borderBottom: `1px solid ${T.lineSoft}`,
+        }}>
+          <Crest color={T.ink} size={22} />
+          <div style={{ flex: 1 }}>
+            <div style={{
+              fontFamily: T.serif, fontSize: 15, fontWeight: 700,
+              letterSpacing: 0.5, color: T.ink, lineHeight: 1,
+            }}>오답 복습</div>
+            <div style={{
+              fontFamily: T.mono, fontSize: 10, color: T.inkMuted,
+              letterSpacing: 1, marginTop: 3,
+            }}>{result.score}/{result.total} 정답</div>
+          </div>
+          <button
+            onClick={() => router.push(`/quiz/${sessionId}/result`)}
+            style={{
+              all: "unset", cursor: "pointer",
+              fontFamily: T.mono, fontSize: 10, color: T.inkMuted,
+              letterSpacing: 0.5, padding: "4px 8px",
+              border: `1px solid ${T.line}`, borderRadius: T.radius,
+            }}
+          >
+            결과로
+          </button>
+        </div>
 
-      {wrong.length === 0 ? (
-        <p className="text-center text-green-600 text-xl font-semibold py-12">
-          All correct!
-        </p>
-      ) : (
-        <div className="flex flex-col gap-10">
-          {wrong.map((item) => (
+        {/* Question cards */}
+        <div style={{ flex: 1, padding: "20px 18px 28px", display: "flex", flexDirection: "column", gap: 24 }}>
+          {result.results.map((item) => (
             <div
               key={`${item.exam_id}_${item.question_no}`}
-              className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+              style={{
+                background: T.surface,
+                border: `1px solid ${T.line}`,
+                borderLeft: `3px solid ${item.is_correct ? T.correct : T.wrong}`,
+                borderRadius: T.cardRadius,
+                overflow: "hidden",
+              }}
             >
-              <p className="mb-3 text-sm font-medium text-gray-500">
-                Question {item.question_no}
-              </p>
+              {/* Card header */}
+              <div style={{
+                padding: "10px 14px",
+                display: "flex", alignItems: "center", gap: 8,
+                borderBottom: `1px solid ${T.lineSoft}`,
+              }}>
+                <span style={{
+                  fontFamily: T.mono, fontSize: 11, color: T.inkMuted,
+                }}>
+                  문항 {String(item.question_no).padStart(2, "0")}
+                </span>
+                <span style={{ flex: 1 }} />
+                <span style={{
+                  fontFamily: T.sans, fontSize: 10, fontWeight: 700,
+                  letterSpacing: 1, textTransform: "uppercase",
+                  color: item.is_correct ? T.correct : T.wrong,
+                  padding: "2px 8px",
+                  border: `1px solid ${item.is_correct ? T.correct : T.wrong}`,
+                  borderRadius: 2,
+                }}>
+                  {item.is_correct ? "정답" : "오답"}
+                </span>
+              </div>
 
-              <div className="mb-4 overflow-hidden rounded-lg border border-gray-100">
+              {/* Image */}
+              <div style={{ background: T.paper, padding: 4 }}>
                 <Image
                   src={imageUrl(item.image_path)}
                   alt={`Question ${item.question_no}`}
                   width={700}
                   height={500}
                   className="w-full object-contain"
+                  style={{ display: "block", borderRadius: T.radius }}
                   unoptimized={true}
                 />
               </div>
 
-              <AnswerGrid item={item} />
-
-              <p className="mt-3 text-xs text-gray-400">
-                Your answer:{" "}
-                <span className="font-medium text-red-500">
-                  {item.selected_answer
-                    ? ANSWER_LABELS[item.selected_answer - 1]
-                    : "Not answered"}
-                </span>{" "}
-                &nbsp;·&nbsp; Correct:{" "}
-                <span className="font-medium text-green-600">
-                  {ANSWER_LABELS[item.correct_answer - 1]}
-                </span>
-              </p>
+              {/* Answer row */}
+              <div style={{ padding: "12px 14px 14px" }}>
+                <AnswerRow item={item} />
+                <div style={{
+                  marginTop: 10, display: "flex", gap: 14,
+                  fontFamily: T.mono, fontSize: 11, color: T.inkMuted,
+                }}>
+                  <span>
+                    내 답:{" "}
+                    <span style={{ color: item.is_correct ? T.correct : T.wrong, fontWeight: 600 }}>
+                      {item.selected_answer ? CIRCLED[item.selected_answer - 1] : "미답변"}
+                    </span>
+                  </span>
+                  <span>
+                    정답:{" "}
+                    <span style={{ color: T.correct, fontWeight: 600 }}>
+                      {CIRCLED[item.correct_answer - 1]}
+                    </span>
+                  </span>
+                </div>
+              </div>
             </div>
           ))}
         </div>
-      )}
 
-      <div className="mt-10 flex gap-3">
-        <button
-          onClick={() => router.push(`/quiz/${sessionId}/result`)}
-          className="rounded-xl border-2 border-gray-300 bg-white px-5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-        >
-          Back to Results
-        </button>
-        <button
-          onClick={() => router.push("/")}
-          className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-        >
-          New Quiz
-        </button>
+        {/* Bottom bar */}
+        <div style={{
+          padding: "12px 18px 28px",
+          borderTop: `1px solid ${T.lineSoft}`,
+          background: T.surface,
+          display: "flex", gap: 10,
+        }}>
+          <button
+            onClick={() => router.push(`/quiz/${sessionId}/result`)}
+            style={{
+              all: "unset", cursor: "pointer",
+              flex: 1, height: 44, borderRadius: T.radius,
+              border: `1px solid ${T.line}`,
+              background: T.surface, color: T.inkSoft,
+              fontFamily: T.sans, fontWeight: 600, fontSize: 14,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            결과로 돌아가기
+          </button>
+          <button
+            onClick={() => router.push("/")}
+            style={{
+              all: "unset", cursor: "pointer",
+              flex: 1, height: 44, borderRadius: T.radius,
+              background: T.ink, color: T.appBg,
+              fontFamily: T.sans, fontWeight: 600, fontSize: 14,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            }}
+          >
+            새 시험
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M3 2l5 4-5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

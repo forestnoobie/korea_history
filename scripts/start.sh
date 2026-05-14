@@ -48,7 +48,7 @@ echo "[3/4] Starting backend on :8000..."
 if lsof -ti:8000 >/dev/null 2>&1; then
     echo "      Port 8000 already in use — skipping."
 else
-    nohup python -m uvicorn app.main:app --reload --port 8000 \
+    nohup bash -c "cd '$PROJECT_ROOT/backend' && python -m uvicorn app.main:app --reload --port 8000" \
         > /tmp/korea-backend.log 2>&1 &
     echo "      Backend PID: $! — logs: /tmp/korea-backend.log"
 fi
